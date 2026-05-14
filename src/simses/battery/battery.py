@@ -120,7 +120,7 @@ class Battery:
         state.entropy = self.entropic_coefficient(state)
         return state
 
-    def step(self, power_setpoint: float, dt: float) -> None:
+    def step(self, power_setpoint: float, dt: float, faststep_factor:int = None) -> None:
         """Advance the battery state by one timestep.
 
         If the battery cannot fulfil the power setpoint due to hard limits
@@ -132,6 +132,8 @@ class Battery:
             power_setpoint: Requested power in W. Positive = charging,
                 negative = discharging.
             dt: Timestep in seconds.
+            faststep_factor: Changes battery behaviour to split power calculation into the passed number of smaller steps,
+                this will ignore derating
         """
         state: BatteryState = self.state
         state.is_charge = power_setpoint > 0.0
@@ -153,41 +155,100 @@ class Battery:
         # 2. Calculate hard current limits (C-rate, voltage, SOC)
         i_max_charge, i_max_discharge = self.calculate_max_currents(soc, dt, ocv, hys, rint, Q)
 
-        # 3. Curtail solved current to hard limits
-        if i > 0:
-            i = min(i, i_max_charge)
-        elif i < 0:
-            i = max(i, i_max_discharge)
+        # Do full single step if no substepping is requested
+        if faststep_factor is None:
+            # 3. Curtail solved current to hard limits
+            if i > 0:
+                i = min(i, i_max_charge)
+            elif i < 0:
+                i = max(i, i_max_discharge)
 
-        # 4. Apply derating (optional).
-        # i_max_charge / i_max_discharge are only updated when derating actually reduces i,
-        # so that the reported limits reflect the hard limits during normal operation and only
-        # drop when the battery is genuinely in the derating zone.
-        if self.derating is not None:
-            i_derate = self.derating.derate(i, state)
-            if i > 0 and i_derate < i:
-                i = i_derate
-                i_max_charge = min(i_max_charge, i_derate)
-            elif i < 0 and i_derate > i:
-                i = i_derate
-                i_max_discharge = max(i_max_discharge, i_derate)
+            # 4. Apply derating (optional).
+            # i_max_charge / i_max_discharge are only updated when derating actually reduces i,
+            # so that the reported limits reflect the hard limits during normal operation and only
+            # drop when the battery is genuinely in the derating zone.
+            if self.derating is not None:
+                i_derate = self.derating.derate(i, state)
+                if i > 0 and i_derate < i:
+                    i = i_derate
+                    i_max_charge = min(i_max_charge, i_derate)
+                elif i < 0 and i_derate > i:
+                    i = i_derate
+                    i_max_discharge = max(i_max_discharge, i_derate)
 
-        # update soc
-        (soc_min, soc_max) = self.soc_limits
-        soc += i * dt / Q / 3600
-        soc = max(soc_min, min(soc, soc_max))
+            # update soc
+            (soc_min, soc_max) = self.soc_limits
+            soc += i * dt / Q / 3600
+            soc = max(soc_min, min(soc, soc_max))
 
-        # check current direction, maintain previous state if in rest
-        is_charge = state.is_charge if i == 0 else i > 0
+            # check current direction, maintain previous state if in rest
+            is_charge = state.is_charge if i == 0 else i > 0
 
-        # update terminal voltage and power
-        v = ocv + hys + rint * i
-        power = v * i
+            # update terminal voltage and power
+            v = ocv + hys + rint * i
+            power = v * i
 
-        # update losses
-        loss_irr = (v - ocv) * i  # irreversible losses
-        loss_rev = entropy * (state.T + 273.15) * i  # reversible losses (T must be absolute)
-        heat = loss_irr + loss_rev  # internal heat generation
+            # update losses
+            loss_irr = (v - ocv) * i  # irreversible losses
+            loss_rev = entropy * (state.T + 273.15) * i  # reversible losses (T must be absolute)
+            heat = loss_irr + loss_rev  # internal heat generation
+
+
+        # Alternative power calculations for n = faststep_factor smaller substeps
+        else:
+            sub_dt = dt / faststep_factor
+
+            # Scaled down losses will be accumulated during substeps
+            entropy_factor = entropy * (state.T + 273.15)
+            loss_irr = 0
+            loss_rev = 0
+
+            # Look up soc limits
+            (soc_min, soc_max) = self.soc_limits
+            soc_factor = Q / (sub_dt / 3600)
+
+            # Curtail solved current to static limits once
+            if i > 0:
+                i = min(
+                    i,
+                    self.max_charge_current,
+                    (self.max_voltage - ocv - hys) / rint
+                )
+            elif i < 0:
+                i = max(
+                    i,
+                    -self.max_discharge_current,
+                    (self.min_voltage - ocv - hys) / rint
+                )
+
+
+            for _substep in range(faststep_factor):
+                # 3. Curtail solved current to soc limit
+                if i > 0:
+                    i = min(i, (soc_max - soc) * soc_factor)
+                elif i < 0:
+                    i = max(i, (soc_min - soc) * soc_factor)
+
+                # 4. Derating is omitted, it depends on the battery state which is not updated during substeps
+
+                # Update soc
+                soc += i * sub_dt / Q / 3600
+                soc = max(soc_min, min(soc, soc_max))
+
+                # Add losses relative to substep size
+                loss_irr += (hys + rint * i) * i / faststep_factor
+                loss_rev += entropy_factor * i / faststep_factor
+
+
+            # check current direction, maintain previous state if in rest
+            is_charge = state.is_charge if i == 0 else i > 0
+
+            # update terminal voltage and power
+            v = ocv + hys + rint * i
+            power = v * i
+
+            # update losses
+            heat = loss_irr + loss_rev
 
         # --- phase 2: write output state ---
         state.v = v
