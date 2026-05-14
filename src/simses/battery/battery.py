@@ -145,12 +145,13 @@ class Battery:
         rint = state.rint = self.internal_resistance(state)
         entropy = state.entropy = self.entropic_coefficient(state)
         Q = self.capacity(state)
+        soc = state.soc
 
         # 1. Calculate equilibrium current to meet power setpoint
         i = self.equilibrium_current(power_setpoint, ocv, hys, rint)
 
         # 2. Calculate hard current limits (C-rate, voltage, SOC)
-        i_max_charge, i_max_discharge = self.calculate_max_currents(state.soc, dt, ocv, hys, rint, Q)
+        i_max_charge, i_max_discharge = self.calculate_max_currents(soc, dt, ocv, hys, rint, Q)
 
         # 3. Curtail solved current to hard limits
         if i > 0:
@@ -173,7 +174,7 @@ class Battery:
 
         # update soc
         (soc_min, soc_max) = self.soc_limits
-        soc = state.soc + i * dt / Q / 3600
+        soc += i * dt / Q / 3600
         soc = max(soc_min, min(soc, soc_max))
 
         # check current direction, maintain previous state if in rest
