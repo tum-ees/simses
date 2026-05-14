@@ -150,7 +150,7 @@ class Battery:
         i = self.equilibrium_current(power_setpoint, ocv, hys, rint)
 
         # 2. Calculate hard current limits (C-rate, voltage, SOC)
-        i_max_charge, i_max_discharge = self.calculate_max_currents(state, dt, ocv, hys, rint, Q)
+        i_max_charge, i_max_discharge = self.calculate_max_currents(state.soc, dt, ocv, hys, rint, Q)
 
         # 3. Curtail solved current to hard limits
         if i > 0:
@@ -225,7 +225,7 @@ class Battery:
         return -(ocv - math.sqrt(ocv**2 + 4 * rint * power_setpoint)) / (2 * rint)
 
     def calculate_max_currents(
-        self, state: BatteryState, dt: float, ocv: float, hys: float, rint: float, Q: float
+        self, soc: float, dt: float, ocv: float, hys: float, rint: float, Q: float
     ) -> tuple[float, float]:
         """Return the allowed current window for the next timestep.
 
@@ -237,7 +237,7 @@ class Battery:
         this step).
 
         Args:
-            state: Current battery state (reads ``soc``).
+            soc: Battery state of charge.
             dt: Timestep in seconds.
             ocv: System open-circuit voltage in V.
             hys: System hysteresis voltage in V.
@@ -249,7 +249,6 @@ class Battery:
             is non-negative; discharge bound is non-positive.
         """
         (soc_min, soc_max) = self.soc_limits
-        soc = state.soc
 
         # charge (all three values are positive; min = most restrictive)
         i_max_charge = min(

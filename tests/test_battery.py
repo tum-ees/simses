@@ -232,7 +232,7 @@ class TestCalculateMaxCurrents:
     def _params(self, bat):
         state = bat.state
         return (
-            state,
+            state.soc,
             bat.open_circuit_voltage(state),
             bat.hysteresis_voltage(state),
             bat.internal_resistance(state),
@@ -242,39 +242,39 @@ class TestCalculateMaxCurrents:
     def test_sign_at_mid_soc(self):
         """i_max_charge >= 0 and i_max_discharge <= 0 for a mid-SOC battery."""
         bat = _make_battery(soc=0.5)
-        state, ocv, hys, rint, Q = self._params(bat)
-        i_max_charge, i_max_discharge = bat.calculate_max_currents(state, 1.0, ocv, hys, rint, Q)
+        soc, ocv, hys, rint, Q = self._params(bat)
+        i_max_charge, i_max_discharge = bat.calculate_max_currents(soc, 1.0, ocv, hys, rint, Q)
         assert i_max_charge >= 0
         assert i_max_discharge <= 0
 
     def test_c_rate_is_binding_charge(self):
         """When SOC and voltage are far from limits, C-rate is the binding charge limit."""
         bat = _make_battery(soc=0.5)
-        state, ocv, hys, rint, Q = self._params(bat)
+        soc, ocv, hys, rint, Q = self._params(bat)
         # dt=1s makes the SOC limit (0.5*Q*3600 A) much larger than the C-rate limit
-        i_max_charge, _ = bat.calculate_max_currents(state, 1.0, ocv, hys, rint, Q)
+        i_max_charge, _ = bat.calculate_max_currents(soc, 1.0, ocv, hys, rint, Q)
         assert i_max_charge == pytest.approx(bat.max_charge_current, rel=1e-6)
 
     def test_c_rate_is_binding_discharge(self):
         """Symmetric check on the discharge side at mid SOC."""
         bat = _make_battery(soc=0.5)
-        state, ocv, hys, rint, Q = self._params(bat)
-        _, i_max_discharge = bat.calculate_max_currents(state, 1.0, ocv, hys, rint, Q)
+        soc, ocv, hys, rint, Q = self._params(bat)
+        _, i_max_discharge = bat.calculate_max_currents(soc, 1.0, ocv, hys, rint, Q)
         assert i_max_discharge == pytest.approx(-bat.max_discharge_current, rel=1e-6)
 
     def test_voltage_limit_charge(self):
         """Near max voltage, voltage limit constrains i_max_charge."""
         bat = _make_battery(soc=0.99)
-        state, ocv, hys, rint, Q = self._params(bat)
-        i_max_charge, _ = bat.calculate_max_currents(state, 1.0, ocv, hys, rint, Q)
+        soc, ocv, hys, rint, Q = self._params(bat)
+        i_max_charge, _ = bat.calculate_max_currents(soc, 1.0, ocv, hys, rint, Q)
         v_terminal = ocv + hys + rint * i_max_charge
         assert v_terminal <= bat.max_voltage + 1e-6
 
     def test_voltage_limit_discharge(self):
         """Near min voltage, voltage limit constrains i_max_discharge."""
         bat = _make_battery(soc=0.01)
-        state, ocv, hys, rint, Q = self._params(bat)
-        _, i_max_discharge = bat.calculate_max_currents(state, 1.0, ocv, hys, rint, Q)
+        soc, ocv, hys, rint, Q = self._params(bat)
+        _, i_max_discharge = bat.calculate_max_currents(soc, 1.0, ocv, hys, rint, Q)
         v_terminal = ocv + hys + rint * i_max_discharge
         assert v_terminal >= bat.min_voltage - 1e-6
 
@@ -282,28 +282,28 @@ class TestCalculateMaxCurrents:
         """Near SOC max with short dt, SOC limit constrains i_max_charge."""
         bat = _make_battery(soc=0.99, soc_limits=(0.0, 1.0))
         dt = 1.0
-        state, ocv, hys, rint, Q = self._params(bat)
-        i_max_charge, _ = bat.calculate_max_currents(state, dt, ocv, hys, rint, Q)
+        soc, ocv, hys, rint, Q = self._params(bat)
+        i_max_charge, _ = bat.calculate_max_currents(soc, dt, ocv, hys, rint, Q)
         delta_soc = i_max_charge * dt / Q / 3600
-        assert state.soc + delta_soc <= 1.0 + 1e-9
+        assert soc + delta_soc <= 1.0 + 1e-9
 
     def test_soc_limit_discharge(self):
         """Near SOC min, SOC limit constrains i_max_discharge."""
         bat = _make_battery(soc=0.01, soc_limits=(0.0, 1.0))
         dt = 3600.0
-        state, ocv, hys, rint, Q = self._params(bat)
-        _, i_max_discharge = bat.calculate_max_currents(state, dt, ocv, hys, rint, Q)
+        soc, ocv, hys, rint, Q = self._params(bat)
+        _, i_max_discharge = bat.calculate_max_currents(soc, dt, ocv, hys, rint, Q)
         delta_soc = i_max_discharge * dt / Q / 3600
-        assert state.soc + delta_soc >= 0.0 - 1e-9
+        assert soc + delta_soc >= 0.0 - 1e-9
 
     def test_custom_soc_limits(self):
         """SOC limits narrower than 0-1 are respected."""
         bat = _make_battery(soc=0.89, soc_limits=(0.1, 0.9))
         dt = 1.0
-        state, ocv, hys, rint, Q = self._params(bat)
-        i_max_charge, _ = bat.calculate_max_currents(state, dt, ocv, hys, rint, Q)
+        soc, ocv, hys, rint, Q = self._params(bat)
+        i_max_charge, _ = bat.calculate_max_currents(soc, dt, ocv, hys, rint, Q)
         delta_soc = i_max_charge * dt / Q / 3600
-        assert state.soc + delta_soc <= 0.9 + 1e-9
+        assert soc + delta_soc <= 0.9 + 1e-9
 
 
 # ===================================================================
