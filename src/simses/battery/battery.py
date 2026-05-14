@@ -193,55 +193,70 @@ class Battery:
             loss_rev = entropy * (state.T + 273.15) * i  # reversible losses (T must be absolute)
             heat = loss_irr + loss_rev  # internal heat generation
 
+        # Skip most calculations if no current flows
+        elif i == 0:
+            v = ocv + hys
+            power = 0
+            loss_irr = 0
+            heat = 0
+            is_charge = state.is_charge
 
         # Alternative power calculations for n = faststep_factor smaller substeps
         else:
             sub_dt = dt / faststep_factor
 
             # Scaled down losses will be accumulated during substeps
-            entropy_factor = entropy * (state.T + 273.15)
             loss_irr = 0
             loss_rev = 0
+            entropy_factor = entropy * (state.T + 273.15)
 
             # Look up soc limits
             (soc_min, soc_max) = self.soc_limits
             soc_factor = Q / (sub_dt / 3600)
 
-            # Curtail solved current to static limits once
+            # Split logic for charge and discharge
+            # This avoids some current comparisons and re-evaluating current direction each substep
             if i > 0:
+                is_charge = True
+                # 3.1 Curtail solved current to static limits once
                 i = min(
                     i,
                     self.max_charge_current,
-                    (self.max_voltage - ocv - hys) / rint
-                )
+                    (self.max_voltage - ocv - hys) / rint )
+
+                for _substep in range(faststep_factor):
+                    # 3.2 Curtail solved current to soc limit
+                    i = min(i, (soc_max - soc) * soc_factor)
+
+                    # 4. Derating is omitted, it depends on the battery state which is not updated during substeps
+
+                    # Update soc
+                    soc += i * sub_dt / Q / 3600
+                    soc = min(soc, soc_max)
+
+                    # Add losses relative to substep size
+                    loss_irr += (hys + rint * i) * i / faststep_factor
+                    loss_rev += entropy_factor * i / faststep_factor
+
+            # Mirror charging behaviour
             elif i < 0:
+                is_charge = False
                 i = max(
                     i,
                     -self.max_discharge_current,
-                    (self.min_voltage - ocv - hys) / rint
-                )
+                    (self.min_voltage - ocv - hys) / rint )
 
-
-            for _substep in range(faststep_factor):
-                # 3. Curtail solved current to soc limit
-                if i > 0:
-                    i = min(i, (soc_max - soc) * soc_factor)
-                elif i < 0:
+                for _substep in range(faststep_factor):
                     i = max(i, (soc_min - soc) * soc_factor)
 
-                # 4. Derating is omitted, it depends on the battery state which is not updated during substeps
+                    soc += i * sub_dt / Q / 3600
+                    soc = max(soc_min, soc)
 
-                # Update soc
-                soc += i * sub_dt / Q / 3600
-                soc = max(soc_min, min(soc, soc_max))
-
-                # Add losses relative to substep size
-                loss_irr += (hys + rint * i) * i / faststep_factor
-                loss_rev += entropy_factor * i / faststep_factor
+                    loss_irr += (hys + rint * i) * i / faststep_factor
+                    loss_rev += entropy_factor * i / faststep_factor
 
 
-            # check current direction, maintain previous state if in rest
-            is_charge = state.is_charge if i == 0 else i > 0
+
 
             # update terminal voltage and power
             v = ocv + hys + rint * i
