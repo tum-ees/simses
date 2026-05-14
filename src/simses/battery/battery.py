@@ -224,11 +224,20 @@ class Battery:
                     self.max_charge_current,
                     (self.max_voltage - ocv - hys) / rint )
 
-                for _substep in range(faststep_factor):
-                    # 3.2 Curtail solved current to soc limit
-                    i = min(i, (soc_max - soc) * soc_factor)
+                # 3.2 Curtail solved current to soc limit
+                i = min(i, (soc_max - soc) * soc_factor)
 
-                    # 4. Derating is omitted, it depends on the battery state which is not updated during substeps
+                # 4. Apply derating once
+                if self.derating is not None:
+                    i_derate = self.derating.derate(i, state)
+
+                    if i_derate < i:
+                        i = i_derate
+                        i_max_charge = min(i_max_charge, i_derate)
+
+                for _substep in range(faststep_factor):
+                    # Curtail solved current to updated soc limit
+                    i = min(i, (soc_max - soc) * soc_factor)
 
                     # Update soc
                     soc += i * sub_dt / Q / 3600
@@ -246,6 +255,15 @@ class Battery:
                     -self.max_discharge_current,
                     (self.min_voltage - ocv - hys) / rint )
 
+                i = max(i, (soc_min - soc) * soc_factor)
+
+                if self.derating is not None:
+                    i_derate = self.derating.derate(i, state)
+
+                    if i_derate > i:
+                        i = i_derate
+                        i_max_discharge = max(i_max_discharge, i_derate)
+
                 for _substep in range(faststep_factor):
                     i = max(i, (soc_min - soc) * soc_factor)
 
@@ -254,9 +272,6 @@ class Battery:
 
                     loss_irr += (hys + rint * i) * i / faststep_factor
                     loss_rev += entropy_factor * i / faststep_factor
-
-
-
 
             # update terminal voltage and power
             v = ocv + hys + rint * i
