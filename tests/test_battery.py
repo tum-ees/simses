@@ -224,6 +224,17 @@ class TestEquilibriumCurrent:
         i = bat.equilibrium_current(1e9, ocv, hys, rint)
         assert i > bat.max_charge_current
 
+    def test_unachievable_discharge_saturates_at_matched_load(self):
+        """A discharge setpoint above the matched-load ceiling |P| > (OCV+hys)²/(4·R)
+        must not raise from math.sqrt; the returned current saturates at the
+        matched-load value -(OCV+hys)/(2·R)."""
+        bat = _make_battery(soc=0.0)  # ocv = min_voltage = 3.0 V at SOC=0
+        ocv, hys, rint = self._params(bat)
+        # SimpleCell at SOC=0: matched-load max P_dch = ocv²/(4·rint) = 9/(4e-3) = 2250 W.
+        # Ask for far more than that — discriminant would go negative without the clamp.
+        i = bat.equilibrium_current(-10_000.0, ocv, hys, rint)
+        assert i == pytest.approx(-(ocv + hys) / (2 * rint))
+
 
 # ===================================================================
 # calculate_max_currents
@@ -798,6 +809,17 @@ class TestEdgeCases:
         bat.state.soh_R = 1.2
         assert bat.capacity(bat.state) == pytest.approx(100.0 * 0.8)
         assert bat.internal_resistance(bat.state) == pytest.approx(SimpleCell.RINT * 1.2)
+
+    def test_step_handles_unachievable_discharge(self):
+        """Battery.step() must not raise when asked to discharge above the
+        physical matched-load ceiling.  The current is curtailed downstream
+        by the SOC / voltage / C-rate limits in calculate_max_currents."""
+        bat = _make_battery(soc=0.0)
+        bat.step(power_setpoint=-1e9, dt=60.0)
+        # At SOC=0 every discharge limit (SOC floor, voltage floor) collapses
+        # to ~0 A, so the battery cannot discharge at all this step.
+        assert bat.state.i == pytest.approx(0.0)
+        assert bat.state.power == pytest.approx(0.0)
 
 
 # ===================================================================

@@ -222,7 +222,8 @@ class Battery:
         ocv = ocv + hys  # include hysteresis in equilibrium calculation
         if power_setpoint == 0.0:
             return 0.0
-        return -(ocv - math.sqrt(ocv**2 + 4 * rint * power_setpoint)) / (2 * rint)
+        discriminant = max(0.0, ocv**2 + 4 * rint * power_setpoint)
+        return -(ocv - math.sqrt(discriminant)) / (2 * rint)
 
     def calculate_max_currents(
         self, state: BatteryState, dt: float, ocv: float, hys: float, rint: float, Q: float
