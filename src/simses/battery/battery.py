@@ -182,9 +182,9 @@ class Battery:
 
         # Apply self-discharge (optional)
         if self.self_discharge is not None:
-            i_sd = self.self_discharge_current(state) # cell-state dependent self-discharge current
-            i_sd = min(i_sd, (soc - soc_min) * Q * 3600 / dt) # clamp to soc limit
-            soc = max(soc_min, soc - i_sd * dt / Q / 3600) # update soc and clamp to limit
+            i_sd = self.self_discharge_current(state)  # cell-state dependent self-discharge current
+            i_sd = min(i_sd, (soc - soc_min) * Q * 3600 / dt)  # clamp to soc limit
+            soc = max(soc_min, soc - i_sd * dt / Q / 3600)  # update soc and clamp to limit
             loss_sd = i_sd * ocv
         else:
             loss_sd = 0.0
