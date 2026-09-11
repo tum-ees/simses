@@ -40,7 +40,6 @@ class SonyLFP(CellType):
                 min_voltage=2.0,  # V
                 max_charge_rate=1.0,  # 1/h
                 max_discharge_rate=6.6,  # 1/h
-                self_discharge_rate=0.0 / (365 / 12),
                 coulomb_efficiency=1.0,  # p.u.
             ),
             thermal=ThermalCellProperties(

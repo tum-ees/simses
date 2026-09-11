@@ -28,7 +28,6 @@ class Samsung94AhNMC(CellType):
                 min_voltage=2.7,  # V
                 max_charge_rate=2.0,  # 1/h
                 max_discharge_rate=2.0,  # 1/h
-                self_discharge_rate=0.0 / (365 / 12),
                 coulomb_efficiency=1.0,  # p.u.
             ),
             thermal=ThermalCellProperties(
