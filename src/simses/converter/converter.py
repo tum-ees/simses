@@ -54,7 +54,7 @@ class Converter:
         storage: Downstream storage receiving the DC power setpoint.
     """
 
-    def __init__(self, loss_model: ConverterLossModel, max_power: float, storage: Any) -> None:
+    def __init__(self, loss_model: ConverterLossModel, max_power: float, storage: Any, tolerance: float = 0.01) -> None:
         """
         Args:
             loss_model: AC/DC loss model satisfying :class:`ConverterLossModel`.
@@ -62,11 +62,14 @@ class Converter:
                 normalisation base for ``loss_model``).
             storage: Downstream storage exposing ``step(power, dt)`` and
                 ``state.power``. Typically a :class:`Battery`.
+            tolerance: Relative difference between requested and
+            actual DC power above which AC power is re-calculated
         """
         self.max_power = max_power
         self.state = ConverterState()
         self.model = loss_model
         self.storage = storage
+        self.tolerance = abs(tolerance)
 
     def step(self, power_setpoint: float, dt: float) -> None:
         """Apply an AC power setpoint over one timestep.
@@ -95,7 +98,7 @@ class Converter:
 
         # check if subsystem fulfilled DC power
         # if not, re-calculate required AC power
-        if power_dc != 0 and (abs(power_dc - power_storage) / abs(power_dc)) > 0.01:  # 1% difference tolerance
+        if power_dc != 0 and (abs(power_dc - power_storage) / abs(power_dc)) > self.tolerance:
             power_dc = power_storage
             power_ac = self.dc_to_ac(power_dc)
 
