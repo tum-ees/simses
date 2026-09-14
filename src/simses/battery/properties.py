@@ -12,8 +12,6 @@ class ElectricalCellProperties:
         max_voltage: Maximum allowed terminal voltage in V.
         max_charge_rate: Maximum charge C-rate in 1/h.
         max_discharge_rate: Maximum discharge C-rate in 1/h.
-        self_discharge_rate: Self-discharge rate in p.u. SOC per day
-            (e.g. ``0.015`` for 1.5% SOC loss per day). Default: 0.
         coulomb_efficiency: Coulomb efficiency in p.u. Default: 1.0.
         charge_derate_voltage_start: Terminal voltage at which charge
             current derating begins, in V. Current is linearly reduced
@@ -31,7 +29,6 @@ class ElectricalCellProperties:
     max_voltage: float
     max_charge_rate: float
     max_discharge_rate: float
-    self_discharge_rate: float = 0.0
     coulomb_efficiency: float = 1.0
     charge_derate_voltage_start: float | None = None
     discharge_derate_voltage_start: float | None = None

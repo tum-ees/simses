@@ -36,6 +36,7 @@ class Battery:
         degradation: DegradationModel | bool | None = None,
         derating: CurrentDerating | None = None,
         effective_cooling_area: float = 1.0,
+        self_discharge: bool = False,
     ) -> None:
         """
         Args:
@@ -57,6 +58,8 @@ class Battery:
                 to model packs where only a portion of each cell face is
                 exposed to coolant, e.g. 0.5 for a two-sided cooling plate
                 that covers half the cell surface.
+            self_discharge: Enable self-discharge behaviour (if available
+                for selected cell)
         """
         if degradation is False:
             degradation = None
@@ -75,6 +78,7 @@ class Battery:
         self.derating = derating
         self.effective_cooling_area = effective_cooling_area
         self.state = self.initialize_state(**initial_states)
+        self.self_discharge = True if self_discharge and cell.self_discharge_current(self.state) is not None else None
 
     def initialize_state(
         self, start_soc: float, start_T: float, start_soh_Q: float = 1.0, start_soh_R: float = 1.0
@@ -134,7 +138,7 @@ class Battery:
             dt: Timestep in seconds.
         """
         state: BatteryState = self.state
-        state.is_charge = power_setpoint > 0.0
+        state.is_charge = state.is_charge if power_setpoint == 0.0 else power_setpoint > 0.0
 
         # --- phase 1: refresh derived cell properties from current soc/T ---
         # ocv, hys, rint are derived from inputs (soc, T, soh_R) that do not
@@ -176,6 +180,15 @@ class Battery:
         soc = state.soc + i * dt / Q / 3600
         soc = max(soc_min, min(soc, soc_max))
 
+        # Apply self-discharge (optional)
+        if self.self_discharge is not None:
+            i_sd = self.self_discharge_current(state)  # cell-state dependent self-discharge current
+            i_sd = min(i_sd, (soc - soc_min) * Q * 3600 / dt)  # clamp to soc limit
+            soc = max(soc_min, soc - i_sd * dt / Q / 3600)  # update soc and clamp to limit
+            loss_sd = i_sd * ocv
+        else:
+            loss_sd = 0.0
+
         # check current direction, maintain previous state if in rest
         is_charge = state.is_charge if i == 0 else i > 0
 
@@ -184,7 +197,7 @@ class Battery:
         power = v * i
 
         # update losses
-        loss_irr = (v - ocv) * i  # irreversible losses
+        loss_irr = (v - ocv) * i + loss_sd  # irreversible losses
         loss_rev = entropy * (state.T + 273.15) * i  # reversible losses (T must be absolute)
         heat = loss_irr + loss_rev  # internal heat generation
 
@@ -278,6 +291,11 @@ class Battery:
         (serial, parallel) = self.circuit
 
         return self.cell.hysteresis_voltage(state) * serial
+
+    def self_discharge_current(self, state: BatteryState) -> float:
+        """Return the self-discharge current."""
+        (serial, parallel) = self.circuit
+        return self.cell.self_discharge_current(state) * parallel
 
     def internal_resistance(self, state: BatteryState) -> float:
         """Return the system-level internal resistance in Ohms, scaled by SoH."""

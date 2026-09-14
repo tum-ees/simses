@@ -24,6 +24,8 @@ class CellType(ABC):
             Returns the hysteresis voltage for a given battery state. Default is 0.
         internal_resistance(state: BatteryState) -> float:
             Abstract method to compute the internal resistance (beginning of life) for a given battery state.
+        self_discharge_current(state: BatteryState) -> float:
+            Returns the self discharge current for a given battery state.
         default_degradation_model(initial_soc: float) -> DegradationModel | None:
             Returns the cell's built-in default degradation model, or None if not defined.
     """
@@ -52,6 +54,13 @@ class CellType(ABC):
     def internal_resistance(self, state: BatteryState) -> float:
         """Compute the beginning-of-life internal resistance (in Ohms) for a given battery state."""
         pass
+
+    def self_discharge_current(self, state: BatteryState) -> float:
+        """
+        Compute the self-discharge-current (in A) for a given battery state.
+        Default is None to indicate no self-discharge model is available.
+        """
+        return None
 
     def entropic_coefficient(self, state: BatteryState) -> float:
         """Compute entropic coefficient (in V/K) for a given battery state. Default is 0."""

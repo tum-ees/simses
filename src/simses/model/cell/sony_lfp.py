@@ -40,7 +40,6 @@ class SonyLFP(CellType):
                 min_voltage=2.0,  # V
                 max_charge_rate=1.0,  # 1/h
                 max_discharge_rate=6.6,  # 1/h
-                self_discharge_rate=0.0 / (365 / 12),
                 coulomb_efficiency=1.0,  # p.u.
             ),
             thermal=ThermalCellProperties(
@@ -80,7 +79,10 @@ class SonyLFP(CellType):
         return interp1d_scalar(state.soc, self._ocv_lut_soc, self._ocv_lut_ocv)
 
     def hysteresis_voltage(self, state: BatteryState) -> float:
-        return interp1d_scalar(state.soc, self._hyst_lut_soc, self._hyst_lut_hyst)
+        if state.is_charge:
+            return 0.5 * interp1d_scalar(state.soc, self._hyst_lut_soc, self._hyst_lut_hyst)
+        else:
+            return -0.5 * interp1d_scalar(state.soc, self._hyst_lut_soc, self._hyst_lut_hyst)
 
     def entropic_coefficient(self, state: BatteryState) -> float:
         return interp1d_scalar(state.soc, self._entropy_lut_soc, self._entropy_lut_entropy)
