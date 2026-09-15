@@ -63,7 +63,7 @@ class Converter:
             storage: Downstream storage exposing ``step(power, dt)`` and
                 ``state.power``. Typically a :class:`Battery`.
             tolerance: Relative difference between requested and
-            actual DC power above which AC power is re-calculated
+                actual DC power above which AC power is re-calculated.
         """
         self.max_power = max_power
         self.state = ConverterState()
