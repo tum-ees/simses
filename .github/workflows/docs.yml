@@ -2,9 +2,10 @@ name: Docs
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main  # only used for deplyoing docs after a PR into main
   pull_request:
-    branches: [main]
+    branches: [dev, main]
 
 permissions:
   contents: read
@@ -20,13 +21,13 @@ concurrency:
 # 2. Source: GitHub Actions  (NOT "Deploy from a branch")
 
 jobs:
-  build:
+  build-docs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v9.0.0
         with:
           python-version: "3.13"
           enable-cache: true
@@ -38,14 +39,14 @@ jobs:
         run: uv run mkdocs build --strict
 
       - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site/
 
-  deploy:
-    needs: build
-    if: github.ref == 'refs/heads/main'
+  deploy-docs:
+    needs: build-docs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -53,4 +54,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

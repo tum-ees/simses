@@ -1,0 +1,24 @@
+name: Main PR policy
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  require-dev-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require source branch to be dev
+        run: |
+            if [ "${{ github.head_ref }}" != "dev" ]; then
+                echo "Pull requests into main must come from dev."
+                echo "Actual source branch: ${{ github.head_ref }}"
+                exit 1
+            fi
+
+# Assumes following Github ruleset:
+# Target branch: main
+# Restrict deletions
+# Require a pull request before merging
+# Require status checks to pass
+# Block force pushes
