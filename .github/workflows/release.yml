@@ -6,7 +6,7 @@ on:
       - "v*"
 
 jobs:
-  build:
+  build-release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -26,8 +26,8 @@ jobs:
           name: dist
           path: dist/
 
-  publish:
-    needs: build
+  publish-release:
+    needs: build-release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: pypi
@@ -43,7 +43,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
-    needs: publish
+    needs: publish-release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
