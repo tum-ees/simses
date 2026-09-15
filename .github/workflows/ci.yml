@@ -2,9 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches:
+      - "feature/**"
+      - "fix/**"
   pull_request:
-    branches: [main, dev]
+    branches:
+      - main
+      - dev
+      - "feature/**"
+      - "fix/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,6 +27,7 @@ jobs:
         with:
           python-version: "3.13"
           enable-cache: true
+          save-cache: false
       - name: Install dependencies
         run: uv sync --all-groups
       - name: Lint with ruff
