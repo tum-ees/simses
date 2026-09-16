@@ -24,7 +24,7 @@ class Haidi(CellType):
                 coulomb_efficiency=1.0,  # p.u.; Placeholder
             ),
             thermal=ThermalCellProperties(
-                # min and max_temp direction dependant on sheet!
+                # min and max_temp direction dependent on sheet!
                 min_temperature=0.0,  # °C, lower bound recommended charge cell environment temperature
                 max_temperature=60.0,  # °C, maximum short term allowable charge
                 mass=0.045,  # kg per cell
