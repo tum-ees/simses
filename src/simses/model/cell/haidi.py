@@ -11,7 +11,7 @@ from simses.interpolation import interp1d_scalar
 class Haidi(CellType):
     """HDCF18650-1800mAh-3.2V cylindrical Li-ion cell."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             electrical=ElectricalCellProperties(
                 nominal_capacity=1.8,  # Ah
@@ -38,18 +38,19 @@ class Haidi(CellType):
         )
 
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-        df = pd.read_csv(os.path.join(path, "haidi_ocv_hys.csv"))
 
-        self._ocv_lut_soc = df["SOC"].tolist()
-        self._ocv_lut_ocv = df["OCV"].tolist()
+        df_ocv_hystv = pd.read_csv(os.path.join(path, "haidi_ocv_hys.csv"))
 
-        self._hyst_lut_soc = df["SOC"].tolist()
-        self._hyst_lut_hyst = df["HystV"].tolist()
+        self._ocv_lut_soc = df_ocv_hystv["SOC"].tolist()
+        self._ocv_lut_ocv = df_ocv_hystv["OCV"].tolist()
 
-        df = pd.read_csv(os.path.join(path, "haidi_rint.csv"))
+        self._hyst_lut_soc = df_ocv_hystv["SOC"].tolist()
+        self._hyst_lut_hyst = df_ocv_hystv["HystV"].tolist()
 
-        self._rint_lut_soc = df["SOC"].tolist()
-        self._rint_lut_rint = df["Rint[Ohm]"].tolist()
+        df_rint = pd.read_csv(os.path.join(path, "haidi_rint.csv"))
+
+        self._rint_lut_soc = df_rint["SOC"].tolist()
+        self._rint_lut_rint = df_rint["Rint[Ohm]"].tolist()
 
     def open_circuit_voltage(self, state: BatteryState) -> float:
         """
@@ -63,7 +64,7 @@ class Haidi(CellType):
         """
         return interp1d_scalar(state.soc, self._hyst_lut_soc, self._hyst_lut_hyst)
 
-    def internal_resistance(self, state):
+    def internal_resistance(self, state: BatteryState) -> float:
         """
         LUT derived from the 105_03_GITT_LFP_Haidi_YF011 measurement data, using the 1C and C/5 charge and discharge branches
         """
