@@ -1,0 +1,24 @@
+name: Dev PR policy
+
+on:
+  pull_request:
+    branches: [dev]
+
+jobs:
+  require-feature-or-fix-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require source branch to be feature or fix
+        run: |
+            if [[ "${{ github.head_ref }}" != feature/* && "${{ github.head_ref }}" != fix/* ]]; then
+              echo "Pull requests into dev must come from a feature/* or fix/* branch."
+              echo "Actual source branch: ${{ github.head_ref }}"
+              exit 1
+            fi
+
+# Assumes following Github ruleset:
+# Target branch: dev
+# Restrict deletions
+# Require a pull request before merging
+# Require status checks to pass
+# Block force pushes
