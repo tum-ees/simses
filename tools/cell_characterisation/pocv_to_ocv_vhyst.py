@@ -30,6 +30,7 @@ def calc_ocv(measurements: dict[pd.DataFrame]) -> tuple[pd.DataFrame, pd.DataFra
 
     return charge_df, discharge_df
 
+
 def build_ocv_lut(
     charge_df: pd.DataFrame,
     discharge_df: pd.DataFrame,

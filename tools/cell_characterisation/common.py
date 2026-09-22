@@ -25,15 +25,13 @@ def read_measurements(files: list[Path], cols: tuple[str, ...] | None = None) ->
 
     return measurements
 
-def plot_measurements(
-        measurements: dict[pd.DataFrame],
-        slice_step: int = 1
-) -> None:
+
+def plot_measurements(measurements: dict[pd.DataFrame], slice_step: int = 1) -> None:
     fig, axes = plt.subplots(3, 1, sharex=False, figsize=(10, 7))
 
     for file, measurement in measurements.items():
         overview = measurement.iloc[::slice_step]
-        x = overview["~Time[s]"]/3600
+        x = overview["~Time[s]"] / 3600
 
         axes[0].plot(x, overview["U[V]"], label=file)
         axes[1].plot(x, overview["I[A]"])
@@ -46,6 +44,7 @@ def plot_measurements(
     axes[0].legend()
 
     plt.tight_layout()
+
 
 def interp_clamped(x, xp, fp):
     if x <= xp[0]:
