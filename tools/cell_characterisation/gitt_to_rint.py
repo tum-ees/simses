@@ -18,14 +18,18 @@ def _calc_rint_helper(
     pulse_edge_lines: tuple[int, ...] = MEASUREMENT_LINES,
     pulses: tuple[int, ...] = DEFAULT_PULSES,
 ):
+    # event ^= alle zeitpunkte von allen pulsen in measurement lines
     events = measurement[measurement["Line"].isin(pulse_edge_lines) & measurement["Cyc-Count"].isin(pulses)].copy()
 
+    # edges ^= event[t0], event[t1] für jedes event
     events["Sample"] = events.groupby(["Line", "Cyc-Count"]).cumcount()
     edges = events[events["Sample"] < 2]
 
     edge = edges.set_index(["Line", "Cyc-Count", "Sample"])[["U[V]", "I[A]", "SOC"]].unstack("Sample")
 
     rint = pd.DataFrame(index=edge.index)
+
+    # eigentliche rint berechnung an ersten 2 zeitpunkten mit feiner auflösung (siehe .pln file)
     rint["Rint[Ohm]"] = (edge["U[V]", 1] - edge["U[V]", 0]) / (edge["I[A]", 1] - edge["I[A]", 0])
     rint["SOC"] = edge["SOC", 0]
     rint["File"] = file
@@ -74,10 +78,9 @@ def build_rint_lut(
     if not interpolated_rints:
         raise ValueError("No valid Rint curves found.")
 
-    # (n_curves, n_soc_points)
     interpolated_rints = np.asarray(interpolated_rints)
 
-    # mean across files/lines at every LUT SOC
+    # rint berechnung aus avg von lines und files
     mean_rint = np.mean(interpolated_rints, axis=0)
 
     return pd.DataFrame({
