@@ -78,7 +78,7 @@ class Battery:
         self.derating = derating
         self.effective_cooling_area = effective_cooling_area
         self.state = self.initialize_state(**initial_states)
-        self.self_discharge = True if self_discharge and cell.self_discharge_current(self.state) is not None else None
+        self.has_self_discharge = self_discharge and cell.self_discharge_current(self.state) is not None
 
     def initialize_state(
         self, start_soc: float, start_T: float, start_soh_Q: float = 1.0, start_soh_R: float = 1.0
@@ -181,7 +181,7 @@ class Battery:
         soc = max(soc_min, min(soc, soc_max))
 
         # Apply self-discharge (optional)
-        if self.self_discharge is not None:
+        if self.has_self_discharge:
             i_sd = self.self_discharge_current(state)  # cell-state dependent self-discharge current
             i_sd = min(i_sd, (soc - soc_min) * Q * 3600 / dt)  # clamp to soc limit
             soc = max(soc_min, soc - i_sd * dt / Q / 3600)  # update soc and clamp to limit
@@ -215,6 +215,64 @@ class Battery:
 
         if self.degradation is not None:
             self.degradation.step(self.state, dt)  # updates state.soh_Q and state.soh_R
+
+    def target_soc(self, soc_target: float, dt: float) -> float:
+        """Request power setpoint needed to reach a given target SOC
+        as fast as possbile while obeying battery limits.
+        Enables query of battery behaviour without significantly modifying ``self.state``.
+        The derived cell properties ``ocv, hys, rint, entropy and is_charge`` are
+        refreshed to ensure correct behaviour, this has no effect if target_soc() is used
+        before stepping the battery and after stepping thermal calculations.
+        Args:
+            soc_target: Desired SOC value.
+            dt: Timestep in seconds.
+        Returns:
+            Battery setpoint in W, same sign convention as ``step``.
+        """
+        state: BatteryState = self.state
+        soc = state.soc
+        (soc_min, soc_max) = self.soc_limits
+
+        is_charge = state.is_charge = soc_target > soc
+
+        ocv = state.ocv = self.open_circuit_voltage(state)
+        hys = state.hys = self.hysteresis_voltage(state)
+        rint = state.rint = self.internal_resistance(state)
+        state.entropy = self.entropic_coefficient(state)
+        Q = self.capacity(state)
+
+        # Decrease SOC to account for self-discharge current
+        if self.has_self_discharge:
+            soc -= self.self_discharge_current(state) * dt / Q / 3600
+
+        if soc_target == soc:
+            return 0
+
+        elif is_charge:
+            # charge direction
+            i = min(
+                self.max_charge_current,  # C-rate limit
+                (self.max_voltage - ocv - hys) / rint,  # voltage limit
+                (min(soc_target, soc_max) - soc) * Q / (dt / 3600),  # SOC limit
+            )
+
+        else:
+            # discharge direction
+            i = max(
+                -self.max_discharge_current,  # C-rate limit
+                (self.min_voltage - ocv - hys) / rint,  # voltage limit
+                (max(soc_target, soc_min) - soc) * Q / (dt / 3600),  # SOC limit
+            )
+
+        # apply derating
+        if self.derating is not None:
+            i_derate = self.derating.derate(i, state)
+            if i > 0 and i_derate < i:
+                i = i_derate
+            elif i < 0 and i_derate > i:
+                i = i_derate
+
+        return i * (ocv + hys + rint * i)
 
     def equilibrium_current(self, power_setpoint: float, ocv: float, hys: float, rint: float) -> float:
         """Solve the ECM for the current that meets a power setpoint.
