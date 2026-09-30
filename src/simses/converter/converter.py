@@ -110,6 +110,28 @@ class Converter:
         self.state.power = power_ac
         self.state.loss = loss
 
+    def target_soc(self, soc_target: float, dt: float) -> float:
+        """Request power setpoint needed to reach a given target SOC
+        as fast as possible while obeying system limits.
+        Enables query of storage behaviour without touching ``self.state`` of Converter.
+        The derived cell properties ``ocv, hys, rint, entropy and is_charge`` in ``storage.state`` are
+        refreshed to ensure correct behaviour, this has no effect if target_soc() is used
+        before stepping the battery and after stepping thermal calculations.
+        Args:
+            soc_target: Desired SOC value.
+            dt: Timestep in seconds.
+        Returns:
+            AC power setpoint in W, same sign convention as ``step``.
+        """
+        dc_setpoint = self.storage.target_soc(soc_target, dt)
+
+        if dc_setpoint >= 0:
+            dc_setpoint = min(self.ac_to_dc(self.max_power), dc_setpoint)
+        else:
+            dc_setpoint = max(self.ac_to_dc(-self.max_power), dc_setpoint)
+
+        return self.dc_to_ac(dc_setpoint)
+
     def ac_to_dc(self, power_ac: float) -> float:
         """Convert an AC power in W to the corresponding DC power in W.
 
