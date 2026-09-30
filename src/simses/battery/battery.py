@@ -218,7 +218,7 @@ class Battery:
 
     def target_soc(self, soc_target: float, dt: float) -> float:
         """Request power setpoint needed to reach a given target SOC
-        as fast as possbile while obeying battery limits.
+        as fast as possible while obeying battery limits.
         Enables query of battery behaviour without significantly modifying ``self.state``.
         The derived cell properties ``ocv, hys, rint, entropy and is_charge`` are
         refreshed to ensure correct behaviour, this has no effect if target_soc() is used

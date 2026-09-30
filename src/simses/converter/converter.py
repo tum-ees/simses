@@ -112,7 +112,7 @@ class Converter:
 
     def target_soc(self, soc_target: float, dt: float) -> float:
         """Request power setpoint needed to reach a given target SOC
-        as fast as possbile while obeying system limits.
+        as fast as possible while obeying system limits.
         Enables query of storage behaviour without touching ``self.state`` of Converter.
         The derived cell properties ``ocv, hys, rint, entropy and is_charge`` in ``storage.state`` are
         refreshed to ensure correct behaviour, this has no effect if target_soc() is used
