@@ -80,7 +80,7 @@ def build_rint_lut(
 
     interpolated_rints = np.asarray(interpolated_rints)
 
-    # rint berechnung aus avg von lines und files
+    # rint calculated by averaging through lines and files
     mean_rint = np.mean(interpolated_rints, axis=0)
 
     return pd.DataFrame({
