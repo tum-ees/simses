@@ -38,7 +38,7 @@ def build_ocv_lut(
     soc_stop: float = 1.0,
     soc_step: float = 0.01,
     trunc_L: float = 1.0,
-    trunc_R: float = 0.0
+    trunc_R: float = 0.0,
 ) -> dict[str, pd.DataFrame]:
 
     soc_lut = np.arange(soc_start, soc_stop + soc_step, soc_step).tolist()
@@ -77,7 +77,6 @@ def build_ocv_lut(
             hys_lut[:n_trunc_L] = [hys_lut[n_trunc_L]] * n_trunc_L
         if n_trunc_R > 0:
             hys_lut[-n_trunc_R:] = [hys_lut[-n_trunc_R - 1]] * n_trunc_R
-
 
         lut_results[file] = pd.DataFrame({
             "SOC": soc_lut,
