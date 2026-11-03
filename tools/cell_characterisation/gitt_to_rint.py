@@ -18,10 +18,10 @@ def _calc_rint_helper(
     pulse_edge_lines: tuple[int, ...] = MEASUREMENT_LINES,
     pulses: tuple[int, ...] = DEFAULT_PULSES,
 ):
-    # event ^= alle zeitpunkte von allen pulsen in measurement lines
+    # event ^= all timepoints of all pulses in measurement lines
     events = measurement[measurement["Line"].isin(pulse_edge_lines) & measurement["Cyc-Count"].isin(pulses)].copy()
 
-    # edges ^= event[t0], event[t1] für jedes event
+    # edges ^= event[t0], event[t1] for each event
     events["Sample"] = events.groupby(["Line", "Cyc-Count"]).cumcount()
     edges = events[events["Sample"] < 2]
 
@@ -29,7 +29,7 @@ def _calc_rint_helper(
 
     rint = pd.DataFrame(index=edge.index)
 
-    # eigentliche rint berechnung an ersten 2 zeitpunkten mit feiner auflösung (siehe .pln file)
+    # actual Rint calculation of the first 2 timepoints with finer resolution (cf. .pln file)
     rint["Rint[Ohm]"] = (edge["U[V]", 1] - edge["U[V]", 0]) / (edge["I[A]", 1] - edge["I[A]", 0])
     rint["SOC"] = edge["SOC", 0]
     rint["File"] = file
